@@ -41,6 +41,13 @@ In a new terminal window, run:
 docker compose up -d
 ```
 
+**Step 5:** Start the Frontend UI Portal
+In a new terminal window, run:
+```bash
+cd frontend
+npm run dev
+```
+
 ## API Contract
 
 The application exposes the following primary REST endpoints:

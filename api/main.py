@@ -1,11 +1,25 @@
 import os
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from celery import Celery
 from celery.result import AsyncResult
 from api.schemas.sprite import GenerateSpriteRequest, TaskStatusResponse
 
 app = FastAPI(title="Comfy Forge 2D API", description="Headless AI-driven 2D asset pipeline")
+
+origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Serve static assets
 output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "engine", "output")
