@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.env
+
+# ComfyUI Models & Outputs (Tuyệt đối không push file model lên GitHub)
+models/**/*.safetensors
+models/**/*.ckpt
+models/**/*.pt
+models/**/*.pth
+output/**/*.png
+output/**/*.jpg
+output/**/*.gif
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Document
+docs/
