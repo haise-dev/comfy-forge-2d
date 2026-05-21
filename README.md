@@ -1,20 +1,55 @@
-# 🛠️ ComfyForge 2D
+# Comfy Forge 2D ⚔️
 
-**A Headless AI-Driven 2D Asset Pipeline for Indie Game Developers.**
+A headless, asynchronous API pipeline for generating 2D game assets using ComfyUI, FastAPI, Celery, and Redis.
 
-ComfyForge 2D is an open-source, 100% local microservice that wraps the power of [ComfyUI](https://github.com/comfyanonymous/ComfyUI) and Stable Diffusion into a seamless RESTful API. It is designed to automate the process of generating game-ready 2D sprites, props, and assets—from text prompts to transparent PNGs—without requiring developers to interact with complex node graphs.
+## System Architecture (Hybrid Approach)
 
-## ✨ Core Features (Planned)
+To maximize GPU performance and avoid bloated 20GB+ Docker images, this project utilizes a **Hybrid Architecture** approach:
+- **Core Engine (ComfyUI + PyTorch):** Runs directly on the bare-metal Ubuntu host machine for direct hardware and VRAM access.
+- **API Services (FastAPI + Celery Worker + Redis):** Run inside an isolated Docker Compose network, communicating back to the host engine securely.
 
-*   **Headless Inference API:** Communicate with ComfyUI entirely via a clean FastAPI REST interface.
-*   **Auto Background Removal:** Built-in nodes to automatically strip backgrounds (alpha channel) and return transparent PNGs ready for game engines (Unity, Godot).
-*   **Style Consistency Enforcement:** Easily pass LoRA parameters via API to lock in your specific game's art style (e.g., pixel art, dark fantasy).
-*   **Plug-and-Play Deployment:** Fully containerized using Docker and Docker Compose for instant local deployment.
+## Prerequisites
 
-## 🏗️ Tech Stack
+- Linux/Ubuntu OS
+- NVIDIA GPU (RTX 30 series or higher / CUDA 12.1 recommended)
+- Python 3.12+
+- `uv` package manager
+- Docker and Docker Compose
 
-*   **AI Engine:** ComfyUI, Stable Diffusion (1.5 / SDXL), Rembg
-*   **Backend Wrapper:** Python, FastAPI
-*   **Task Queue:** Redis & Celery (Planned)
-*   **Infrastructure:** Docker, Docker Compose
-*   **Hardware Target:** Optimized for Single GPU (e.g., RTX 3080 16GB) on Linux/Ubuntu.
+## Quick Start
+
+**Step 1:** Clone the repository
+```bash
+git clone https://github.com/your-username/comfy-forge-2d.git
+cd comfy-forge-2d
+```
+
+**Step 2:** Run the automated setup script to install ComfyUI and download the SD 1.5 base model
+```bash
+./setup_engine.sh
+```
+
+**Step 3:** Start the bare-metal engine
+```bash
+source engine/.venv/bin/activate
+python engine/main.py --listen
+```
+
+**Step 4:** Start the API microservices
+In a new terminal window, run:
+```bash
+docker compose up -d
+```
+
+## API Contract
+
+The application exposes the following primary REST endpoints:
+
+### Generate Sprite
+`POST /api/v1/sprites/generate`
+- **Payload:** Accepts a JSON object containing `prompt`, `negative_prompt`, and `seed`.
+- **Response:** Asynchronously returns a tracking `task_id`.
+
+### Task Status
+`GET /api/v1/tasks/{task_id}`
+- **Response:** Returns the current state of the generation (`PENDING`, `PROCESSING`, `SUCCESS`, or `FAILED`). Upon success, the payload will contain the hosted image links within the `asset_urls` array.

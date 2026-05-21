@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    command: uvicorn api.main:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - COMFYUI_API_URL=http://host.docker.internal:8188/prompt
+      - COMFYUI_WS_URL=ws://host.docker.internal:8188/ws
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./engine/output:/app/engine/output
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: celery -A api.worker.celery_app worker --loglevel=info
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - COMFYUI_API_URL=http://host.docker.internal:8188/prompt
+      - COMFYUI_WS_URL=ws://host.docker.internal:8188/ws
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./engine/output:/app/engine/output
+    depends_on:
+      - redis

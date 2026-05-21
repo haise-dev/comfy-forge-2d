@@ -21,3 +21,10 @@ output/**/*.gif
 
 # Document
 docs/
+engine/
+
+# Hybrid Architecture Exclusions
+.venv/
+comfy_workflows/__pycache__/
+*.log
+*.so
