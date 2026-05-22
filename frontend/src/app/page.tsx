@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Send, Settings2, Plus } from 'lucide-react';
+import { Send, Settings2, Plus, Download } from 'lucide-react';
 
 type Message = {
   id: string;
@@ -23,6 +23,12 @@ export default function Home() {
   const [seed, setSeed] = useState('-1');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Style Marketplace States
+  const [downloadTaskId, setDownloadTaskId] = useState<string | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+  const [downloadStatus, setDownloadStatus] = useState<'IDLE' | 'DOWNLOADING' | 'READY' | 'FAILED'>('IDLE');
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -42,6 +48,45 @@ export default function Home() {
         text: 'Canvas cleared. Ready for the next prompt.',
       },
     ]);
+  };
+
+  const triggerStyleDownload = async () => {
+    if (downloadStatus === 'DOWNLOADING' || downloadStatus === 'READY') return;
+    setDownloadStatus('DOWNLOADING');
+    setDownloadProgress(0);
+    
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/styles/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ style_id: 'pixel_art' }),
+      });
+      
+      if (!res.ok) throw new Error('API Error');
+      const data = await res.json();
+      const taskId = data.task_id;
+      setDownloadTaskId(taskId);
+      
+      const pollInterval = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`http://localhost:8000/api/v1/styles/progress/${taskId}`);
+          if (!statusRes.ok) return;
+          
+          const statusData = await statusRes.json();
+          setDownloadProgress(statusData.progress || 0);
+          
+          if (statusData.status === 'SUCCESS' || statusData.status === 'FAILED') {
+            clearInterval(pollInterval);
+            setDownloadStatus(statusData.status === 'SUCCESS' ? 'READY' : 'FAILED');
+          }
+        } catch (pollErr) {
+          console.error(pollErr);
+        }
+      }, 1000);
+    } catch (err) {
+      console.error(err);
+      setDownloadStatus('FAILED');
+    }
   };
 
   const sendMessage = async () => {
@@ -129,6 +174,39 @@ export default function Home() {
         >
           <Plus className="w-4 h-4" /> New Asset
         </button>
+
+        {/* Style Marketplace */}
+        <div className="mt-8">
+          <h2 className="text-xs uppercase text-zinc-500 font-semibold tracking-wider mb-3">Style Marketplace</h2>
+          <div className="bg-zinc-800/50 p-4 rounded-xl border border-zinc-700/50">
+            <h3 className="text-sm font-medium text-zinc-200">Retro Pixel Art Style</h3>
+            <p className="text-xs text-zinc-400 mt-1 mb-3">Download 16-bit LoRA asset pack.</p>
+            
+            {downloadStatus === 'IDLE' || downloadStatus === 'FAILED' ? (
+              <button 
+                onClick={triggerStyleDownload}
+                className="flex items-center justify-center gap-2 w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-xs font-medium transition"
+              >
+                <Download className="w-3 h-3" />
+                {downloadStatus === 'FAILED' ? 'Retry Install' : 'Install'}
+              </button>
+            ) : downloadStatus === 'DOWNLOADING' ? (
+              <div className="w-full">
+                <div className="flex justify-between text-xs text-zinc-400 mb-1">
+                  <span>Downloading...</span>
+                  <span>{downloadProgress}%</span>
+                </div>
+                <div className="w-full bg-zinc-700 rounded-full h-1.5 overflow-hidden">
+                  <div className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300" style={{ width: `${downloadProgress}%` }}></div>
+                </div>
+              </div>
+            ) : (
+              <div className="w-full py-2 bg-emerald-900/30 text-emerald-400 border border-emerald-800/50 text-center rounded-lg text-xs font-medium">
+                Installed
+              </div>
+            )}
+          </div>
+        </div>
       </aside>
 
       {/* Main Chat Area */}

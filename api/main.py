@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from celery import Celery
@@ -78,3 +79,60 @@ async def get_task_status(task_id: str):
         result=result,
         error=error
     )
+
+class DownloadStyleRequest(BaseModel):
+    style_id: str
+
+AVAILABLE_STYLES = {
+    "pixel_art": {
+        "name": "Retro Pixel Art",
+        "url": "https://civitai.com/api/download/models/43820",
+        "filename": "pixel-art-v1.safetensors"
+    }
+}
+
+@app.post("/api/v1/styles/download")
+async def download_style(request: DownloadStyleRequest):
+    if request.style_id not in AVAILABLE_STYLES:
+        raise HTTPException(status_code=404, detail="Style not found")
+    
+    style_info = AVAILABLE_STYLES[request.style_id]
+    task = celery_app.send_task("download_style_lora_task", args=[request.style_id, style_info["url"]])
+    
+    return {"task_id": task.id, "status": "PENDING"}
+
+@app.get("/api/v1/styles/progress/{task_id}")
+async def get_style_progress(task_id: str):
+    res = AsyncResult(task_id, app=celery_app)
+    
+    status_map = {
+        "PENDING": "PENDING",
+        "STARTED": "PROCESSING",
+        "PROCESSING": "PROCESSING",
+        "SUCCESS": "SUCCESS",
+        "FAILURE": "FAILED",
+        "RETRY": "PROCESSING",
+        "REVOKED": "FAILED"
+    }
+    
+    status = status_map.get(res.state, res.state)
+    
+    progress = 0
+    if status == 'PROCESSING':
+        if isinstance(res.info, dict):
+            progress = res.info.get('progress', 0)
+    elif status == 'SUCCESS':
+        progress = 100
+        
+    response_data = {
+        "task_id": task_id,
+        "status": status,
+        "progress": progress
+    }
+    
+    if status == 'SUCCESS':
+        response_data["result"] = res.result
+    elif status == 'FAILED':
+        response_data["error"] = str(res.result)
+        
+    return response_data
